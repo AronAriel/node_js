@@ -24,7 +24,8 @@ npm run dev
 
 ```
 project-root/
-├─ backend/data      # Backend and Data
+├─ backend/       # Backend code
+├─ data/          # Data
 ├─ frontend/      # Frontend code 
 └─ README.md      
 ```
