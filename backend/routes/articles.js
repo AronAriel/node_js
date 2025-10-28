@@ -6,12 +6,18 @@ const router = express.Router();
 const DATA_DIR = path.join(__dirname, '../../data');
 
 router.get('/', (req, res) => {
-    const files = fs.readdirSync(DATA_DIR);
-    const articles = files.map(file => {
-        const content = fs.readFileSync(path.join(DATA_DIR, file));
-        return JSON.parse(content);
+  const files = fs.readdirSync(DATA_DIR);
+  const articles = files
+    .filter(f => f.endsWith('.json'))
+    .map(f => {
+      const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
+      return {
+        id: data.id,
+        title: data.title,
+        createdAt: data.createdAt
+      };
     });
-    res.json(articles);
+  res.json(articles);
 });
 
 router.get('/:id', (req, res) => {
