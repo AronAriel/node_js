@@ -2,7 +2,6 @@ import { useState } from 'react';
 import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
-import ArticleEditForm from './components/ArticleEditForm'; // 👈 новый импорт
 
 function App() {
   const [view, setView] = useState('list');
@@ -13,16 +12,11 @@ function App() {
     setView('view');
   };
 
+  const handleBack = () => setView('list');
+
   const handleCreated = (id) => {
     setSelectedId(id);
     setView('view');
-  };
-
-  const handleBack = () => setView('list');
-
-  const handleEdit = (id) => {
-    setSelectedId(id);
-    setView('edit');
   };
 
   const handleEdited = (id) => {
@@ -49,17 +43,20 @@ function App() {
         <ArticleView
           id={selectedId}
           onBack={handleBack}
-          onEdit={handleEdit}
+          onEdit={(id) => {
+            setSelectedId(id);
+            setView('edit');
+          }}
           onDeleteSuccess={handleBack}
         />
       )}
 
       {view === 'create' && (
-        <ArticleForm onCreated={handleCreated} onBack={handleBack} />
+        <ArticleForm mode="create" onSuccess={handleCreated} onBack={handleBack} />
       )}
 
       {view === 'edit' && (
-        <ArticleEditForm id={selectedId} onEdited={handleEdited} onBack={handleBack} />
+        <ArticleForm mode="edit" id={selectedId} onSuccess={handleEdited} onBack={handleBack} />
       )}
     </div>
   );

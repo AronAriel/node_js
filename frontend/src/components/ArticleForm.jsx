@@ -1,30 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import './ArticleCommonForm.css';
+import './ArticleForm.css';
 
-export default function ArticleForm({ onCreated, onBack }) {
+export default function ArticleForm({ 
+  mode = 'create',  
+  id, 
+  onSuccess, 
+  onBack 
+}) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ title: '', content: '' });
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    if (mode === 'edit' && id) {
+      axios
+        .get(`http://localhost:5000/articles/${id}`)
+        .then(res => {
+          setTitle(res.data.title);
+          setContent(res.data.content);
+        })
+        .catch(() => setGeneralError('Failed to load article'));
+    }
+  }, [mode, id]);
+
   const validateForm = () => {
     const errs = { title: '', content: '' };
 
-    if (!title.trim()) {
-      errs.title = 'Title is required.';
-    }
+    if (!title.trim()) errs.title = 'Title is required.';
 
     const plainText = content.replace(/<[^>]+>/g, '').trim();
-    if (!plainText) {
-      errs.content = 'Content cannot be empty.';
-    }
+    if (!plainText) errs.content = 'Content cannot be empty.';
 
     setFieldErrors(errs);
-
     return !errs.title && !errs.content;
   };
 
@@ -32,24 +44,29 @@ export default function ArticleForm({ onCreated, onBack }) {
     e.preventDefault();
     setGeneralError('');
     setSuccess('');
-    setFieldErrors({ title: '', content: '' });
 
     if (!validateForm()) return;
 
     try {
-      const res = await axios.post('http://localhost:5000/articles', { title, content });
-      setSuccess('Article created successfully!');
-      setTitle('');
-      setContent('');
-      onCreated(res.data.id);
+      if (mode === 'create') {
+        const res = await axios.post('http://localhost:5000/articles', { title, content });
+        setSuccess('Article created successfully!');
+        setTitle('');
+        setContent('');
+        onSuccess?.(res.data.id);
+      } else {
+        const res = await axios.put(`http://localhost:5000/articles/${id}`, { title, content });
+        setSuccess('Article updated successfully!');
+        onSuccess?.(res.data.id);
+      }
     } catch (err) {
-      setGeneralError(err.response?.data?.error || 'Failed to create article');
+      setGeneralError(err.response?.data?.error || 'Failed to save article');
     }
   };
 
   return (
     <div className="create-article-container">
-      <h2>Create New Article</h2>
+      <h2>{mode === 'create' ? 'Create New Article' : 'Edit Article'}</h2>
 
       {generalError && <p className="error">{generalError}</p>}
       {success && <p className="success">{success}</p>}
@@ -72,13 +89,13 @@ export default function ArticleForm({ onCreated, onBack }) {
             value={content}
             onChange={setContent}
             className="quill-editor"
-            placeholder="Write your article here..."
+            placeholder={mode === 'create' ? 'Write your article here...' : 'Edit your article here...'}
           />
         </div>
         {fieldErrors.content && <p className="error">{fieldErrors.content}</p>}
 
         <div className="buttons">
-          <button type="submit">Create</button>
+          <button type="submit">{mode === 'create' ? 'Create' : 'Update'}</button>
           <button type="button" className="back-btn" onClick={onBack}>Back</button>
         </div>
       </form>
