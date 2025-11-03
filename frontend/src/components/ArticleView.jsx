@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import './ArticleView.css';
 
-export default function ArticleView({ id, onBack }) {
+export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
   const [article, setArticle] = useState(null);
   const [error, setError] = useState('');
 
@@ -13,6 +13,17 @@ export default function ArticleView({ id, onBack }) {
       .then(res => setArticle(res.data))
       .catch(() => setError('Article not found'));
   }, [id]);
+
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this article?')) return;
+    try {
+      await axios.delete(`http://localhost:5000/articles/${id}`);
+      alert('Article deleted successfully!');
+      onDeleteSuccess();
+    } catch (err) {
+      alert('Failed to delete article');
+    }
+  };
 
   if (error) {
     return (
@@ -40,6 +51,8 @@ export default function ArticleView({ id, onBack }) {
       />
       <div className="buttons">
         <button onClick={onBack}>Back</button>
+        <button onClick={() => onEdit(article.id)}>Edit</button>
+        <button className="delete-btn" onClick={handleDelete}>Delete</button>
       </div>
     </div>
   );
