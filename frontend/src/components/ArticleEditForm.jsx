@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import './ArticleEditForm.css';
+import './ArticleCommonForm.css';
 
 export default function ArticleEditForm({ id, onEdited, onBack }) {
   const [title, setTitle] = useState('');

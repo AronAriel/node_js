@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import './ArticleForm.css';
+import './ArticleCommonForm.css';
 
 export default function ArticleForm({ onCreated, onBack }) {
   const [title, setTitle] = useState('');
