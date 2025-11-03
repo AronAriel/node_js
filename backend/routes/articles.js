@@ -5,84 +5,89 @@ const router = express.Router();
 
 const DATA_DIR = path.join(__dirname, '../../data');
 
-const getFilePath = (id) => path.join(DATA_DIR, `${id}.json`);
+function getFilePath(id) {
+  return path.join(DATA_DIR, `${id}.json`);
+}
+
+function sendError(res, status, message) {
+  return res.status(status).json({ error: message });
+}
 
 router.get('/', (req, res) => {
-  const files = fs.readdirSync(DATA_DIR);
-  const articles = files
-    .filter(f => f.endsWith('.json'))
-    .map(f => {
-      const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
-      return {
-        id: data.id,
-        title: data.title,
-        createdAt: data.createdAt
-      };
-    });
-  res.json(articles);
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      return res.json([]);
+    }
+    const files = fs.readdirSync(DATA_DIR);
+    const articles = files
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
+        return { id: data.id, title: data.title, createdAt: data.createdAt || null };
+      });
+    res.json(articles);
+  } catch (err) {
+    sendError(res, 500, 'Failed to read articles');
+  }
 });
 
 router.get('/:id', (req, res) => {
   const filePath = getFilePath(req.params.id);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Article not found' });
+  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Article not found');
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    res.json(JSON.parse(content));
+  } catch {
+    sendError(res, 500, 'Failed to load article');
   }
-  const content = fs.readFileSync(filePath, 'utf-8');
-  res.json(JSON.parse(content));
 });
 
 router.post('/', (req, res) => {
   const { title, content } = req.body;
 
-  if (!title || !content) {
-    return res.status(400).json({ error: 'Title and content are required' });
+  if (!title?.trim()) return sendError(res, 400, 'Title is required');
+  if (!content?.trim()) return sendError(res, 400, 'Content cannot be empty');
+
+  try {
+    const id = Date.now().toString();
+    const article = { id, title: title.trim(), content, createdAt: new Date().toISOString() };
+
+    fs.writeFileSync(getFilePath(id), JSON.stringify(article, null, 2));
+    res.status(201).json(article);
+  } catch {
+    sendError(res, 500, 'Failed to create article');
   }
-
-  const id = Date.now();
-  const article = {
-    id,
-    title,
-    content,
-    createdAt: new Date().toISOString()
-  };
-
-  fs.writeFileSync(getFilePath(id), JSON.stringify(article, null, 2));
-  res.status(201).json(article);
 });
 
 router.put('/:id', (req, res) => {
-  const { title, content } = req.body;
   const filePath = getFilePath(req.params.id);
+  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Cannot edit non-existing article');
 
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Article not found' });
+  const { title, content } = req.body;
+  if (!title?.trim()) return sendError(res, 400, 'Title is required');
+  if (!content?.trim()) return sendError(res, 400, 'Content cannot be empty');
+
+  try {
+    const oldArticle = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const updated = { ...oldArticle, title: title.trim(), content };
+    fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+    res.json(updated);
+  } catch {
+    sendError(res, 500, 'Failed to update article');
   }
-
-  if (!title || !content) {
-    return res.status(400).json({ error: 'Title and content are required' });
-  }
-
-  const existing = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-  const updated = {
-    ...existing,
-    title,
-    content,
-    updatedAt: new Date().toISOString()
-  };
-
-  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
-  res.json(updated);
 });
 
 router.delete('/:id', (req, res) => {
   const filePath = getFilePath(req.params.id);
+  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Cannot delete non-existing article');
 
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Article not found' });
+  try {
+    fs.unlinkSync(filePath);
+    res.json({ message: 'Article deleted successfully' });
+  } catch {
+    sendError(res, 500, 'Failed to delete article');
   }
-
-  fs.unlinkSync(filePath);
-  res.json({ message: 'Article deleted successfully' });
 });
 
 module.exports = router;
