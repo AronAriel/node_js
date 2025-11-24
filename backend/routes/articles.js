@@ -1,9 +1,30 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 const router = express.Router();
 
 const DATA_DIR = path.join(__dirname, '../../data');
+const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + '-' + file.originalname;
+    cb(null, uniqueName);
+  }
+});
+
+const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+
+const fileFilter = (req, file, cb) => {
+  if (allowedTypes.includes(file.mimetype)) cb(null, true);
+  else cb(new Error('Invalid file type — only JPG, PNG, PDF allowed'), false);
+};
+
+const upload = multer({ storage, fileFilter });
 
 function getFilePath(id) {
   return path.join(DATA_DIR, `${id}.json`);
@@ -51,7 +72,13 @@ router.post('/', (req, res) => {
 
   try {
     const id = Date.now().toString();
-    const article = { id, title: title.trim(), content, createdAt: new Date().toISOString() };
+    const article = { 
+      id, 
+      title: title.trim(), 
+      content, 
+      createdAt: new Date().toISOString(),
+      attachments: []     
+    };
 
     fs.writeFileSync(getFilePath(id), JSON.stringify(article, null, 2));
     res.status(201).json(article);
@@ -73,6 +100,11 @@ router.put('/:id', (req, res) => {
     const updated = { ...oldArticle, title: title.trim(), content };
     fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
     res.json(updated);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("articleUpdated", { id: updated.id, title: updated.title });
+    }
   } catch {
     sendError(res, 500, 'Failed to update article');
   }
@@ -88,6 +120,35 @@ router.delete('/:id', (req, res) => {
   } catch {
     sendError(res, 500, 'Failed to delete article');
   }
+});
+
+router.post('/:id/attachments', upload.array('files', 10), (req, res) => {
+  const filePath = getFilePath(req.params.id);
+  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Article not found');
+
+  try {
+    const article = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+    const uploaded = req.files.map(file => ({
+      fileName: file.filename,
+      originalName: file.originalname,
+      mime: file.mimetype,
+      url: `/uploads/${file.filename}`
+    }));
+
+    article.attachments.push(...uploaded);
+    fs.writeFileSync(filePath, JSON.stringify(article, null, 2));
+
+    res.json({ message: 'Files uploaded', attachments: article.attachments });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("attachmentAdded", { id: req.params.id, attachments: uploaded });
+    }
+  } catch (err) {
+    sendError(res, 500, 'Failed to upload attachments');
+  }
+  
 });
 
 module.exports = router;

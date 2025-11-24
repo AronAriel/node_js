@@ -15,6 +15,8 @@ export default function ArticleForm({
   const [generalError, setGeneralError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ title: '', content: '' });
   const [success, setSuccess] = useState('');
+  const [files, setFiles] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -23,6 +25,7 @@ export default function ArticleForm({
         .then(res => {
           setTitle(res.data.title);
           setContent(res.data.content);
+          setUploadedFiles(res.data.attachments || []);
         })
         .catch(() => setGeneralError('Failed to load article'));
     }
@@ -30,12 +33,9 @@ export default function ArticleForm({
 
   const validateForm = () => {
     const errs = { title: '', content: '' };
-
     if (!title.trim()) errs.title = 'Title is required.';
-
     const plainText = content.replace(/<[^>]+>/g, '').trim();
     if (!plainText) errs.content = 'Content cannot be empty.';
-
     setFieldErrors(errs);
     return !errs.title && !errs.content;
   };
@@ -48,17 +48,35 @@ export default function ArticleForm({
     if (!validateForm()) return;
 
     try {
+      let article;
       if (mode === 'create') {
         const res = await axios.post('http://localhost:5000/articles', { title, content });
+        article = res.data;
         setSuccess('Article created successfully!');
         setTitle('');
         setContent('');
-        onSuccess?.(res.data.id);
+        onSuccess?.(article.id);
       } else {
         const res = await axios.put(`http://localhost:5000/articles/${id}`, { title, content });
+        article = res.data;
         setSuccess('Article updated successfully!');
-        onSuccess?.(res.data.id);
+        onSuccess?.(article.id);
       }
+
+      if (files.length > 0) {
+        const formData = new FormData();
+        files.forEach(file => formData.append('files', file));
+
+        const resFiles = await axios.post(
+          `http://localhost:5000/articles/${article.id}/attachments`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+
+        setUploadedFiles(resFiles.data.attachments);
+        setFiles([]);
+      }
+
     } catch (err) {
       setGeneralError(err.response?.data?.error || 'Failed to save article');
     }
@@ -93,6 +111,35 @@ export default function ArticleForm({
           />
         </div>
         {fieldErrors.content && <p className="error">{fieldErrors.content}</p>}
+        <label>Attachments (JPG, PNG, PDF)</label>
+        <input
+          type="file"
+          multiple
+          accept=".jpg,.jpeg,.png,.pdf"
+          onChange={e => setFiles(Array.from(e.target.files))}
+        />
+
+       {uploadedFiles.length > 0 && (
+  <div className="attachments">
+    <h3>Attachments</h3>
+    <div className="attachment-list">
+      {uploadedFiles.map(file => (
+        <a
+          key={file.fileName}
+          href={`http://localhost:5000${file.url}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="attachment-card"
+        >
+          <div className="attachment-icon">
+            {file.mime.includes('image') ? '🖼️' : '📄'}
+          </div>
+          <div className="attachment-name">{file.originalName}</div>
+        </a>
+      ))}
+    </div>
+  </div>
+)}
 
         <div className="buttons">
           <button type="submit">{mode === 'create' ? 'Create' : 'Update'}</button>

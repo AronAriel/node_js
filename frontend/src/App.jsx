@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
@@ -6,6 +7,24 @@ import ArticleForm from './components/ArticleForm';
 function App() {
   const [view, setView] = useState('list');
   const [selectedId, setSelectedId] = useState(null);
+  const [notification, setNotification] = useState('');
+
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+
+    socket.on('articleUpdated', ({ id, title }) => {
+      setNotification(`Article "${title}" was updated`);
+      setTimeout(() => setNotification(''), 5000);
+    });
+
+    socket.on('attachmentAdded', ({ id, attachments }) => {
+      const names = attachments.map(a => a.originalName).join(', ');
+      setNotification(`New attachments added: ${names}`);
+      setTimeout(() => setNotification(''), 5000);
+    });
+
+    return () => socket.disconnect();
+  }, []);
 
   const handleSelect = (id) => {
     setSelectedId(id);
@@ -26,6 +45,8 @@ function App() {
 
   return (
     <div className="container">
+      {notification && <div className="notification">{notification}</div>}
+
       {view === 'list' && (
         <>
           <div className="block create-block">
