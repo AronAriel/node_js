@@ -12,17 +12,14 @@ const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 app.use(cors());
 app.use(bodyParser.json());
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 const httpServer = require("http").createServer(app);
-const { Server } = require("socket.io");
-const io = new Server(httpServer, {
-  cors: { origin: "*" }
-});
 
-app.set("io", io);
+const { initNotifications } = require('./modules/notifications');
+initNotifications(httpServer);
 
 const articlesRouter = require('./routes/articles');
 app.use('/articles', articlesRouter);

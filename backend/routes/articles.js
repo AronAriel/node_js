@@ -1,154 +1,91 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const multer = require('multer');
+const express = require("express");
 const router = express.Router();
+const fs = require("fs");
+const path = require("path");
 
-const DATA_DIR = path.join(__dirname, '../../data');
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + file.originalname;
-    cb(null, uniqueName);
-  }
-});
+const {
+  upload,
+  saveAttachmentPathToArticle,
+  deleteAttachmentIfExists
+} = require("../modules/attachments");
 
-const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+const {
+  notifyArticleCreated,
+  notifyArticleUpdated,
+  notifyArticleDeleted
+} = require("../modules/notifications");
 
-const fileFilter = (req, file, cb) => {
-  if (allowedTypes.includes(file.mimetype)) cb(null, true);
-  else cb(new Error('Invalid file type — only JPG, PNG, PDF allowed'), false);
-};
+const dataFile = path.join(__dirname, "../data/articles.json");
 
-const upload = multer({ storage, fileFilter });
-
-function getFilePath(id) {
-  return path.join(DATA_DIR, `${id}.json`);
+function loadArticles() {
+  if (!fs.existsSync(dataFile)) return [];
+  const raw = fs.readFileSync(dataFile);
+  return JSON.parse(raw);
 }
 
-function sendError(res, status, message) {
-  return res.status(status).json({ error: message });
+function saveArticles(articles) {
+  fs.writeFileSync(dataFile, JSON.stringify(articles, null, 2));
 }
 
-router.get('/', (req, res) => {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      return res.json([]);
-    }
-    const files = fs.readdirSync(DATA_DIR);
-    const articles = files
-      .filter(f => f.endsWith('.json'))
-      .map(f => {
-        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
-        return { id: data.id, title: data.title, createdAt: data.createdAt || null };
-      });
-    res.json(articles);
-  } catch (err) {
-    sendError(res, 500, 'Failed to read articles');
-  }
+router.post("/", upload.single("attachment"), (req, res) => {
+  const articles = loadArticles();
+
+  const newArticle = {
+    id: Date.now().toString(),
+    title: req.body.title,
+    content: req.body.content,
+    attachment: null
+  };
+
+  saveAttachmentPathToArticle(newArticle, req.file);
+  articles.push(newArticle);
+  saveArticles(articles);
+
+  notifyArticleCreated(newArticle);
+
+  res.status(201).json(newArticle);
 });
 
-router.get('/:id', (req, res) => {
-  const filePath = getFilePath(req.params.id);
-  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Article not found');
+router.put("/:id", upload.single("attachment"), (req, res) => {
+  const articles = loadArticles();
+  const index = articles.findIndex(a => a.id === req.params.id);
 
-  try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    res.json(JSON.parse(content));
-  } catch {
-    sendError(res, 500, 'Failed to load article');
+  if (index === -1) return res.status(404).json({ error: "Not found" });
+
+  const oldAttachment = articles[index].attachment;
+
+  articles[index].title = req.body.title;
+  articles[index].content = req.body.content;
+
+  if (req.file) {
+    deleteAttachmentIfExists(oldAttachment);
+    saveAttachmentPathToArticle(articles[index], req.file);
   }
+
+  saveArticles(articles);
+
+  notifyArticleUpdated(articles[index]);
+
+  res.json(articles[index]);
 });
 
-router.post('/', (req, res) => {
-  const { title, content } = req.body;
+router.delete("/:id", (req, res) => {
+  const articles = loadArticles();
+  const index = articles.findIndex(a => a.id === req.params.id);
 
-  if (!title?.trim()) return sendError(res, 400, 'Title is required');
-  if (!content?.trim()) return sendError(res, 400, 'Content cannot be empty');
+  if (index === -1) return res.status(404).json({ error: "Not found" });
 
-  try {
-    const id = Date.now().toString();
-    const article = { 
-      id, 
-      title: title.trim(), 
-      content, 
-      createdAt: new Date().toISOString(),
-      attachments: []     
-    };
+  deleteAttachmentIfExists(articles[index].attachment);
 
-    fs.writeFileSync(getFilePath(id), JSON.stringify(article, null, 2));
-    res.status(201).json(article);
-  } catch {
-    sendError(res, 500, 'Failed to create article');
-  }
-});
+  const deletedId = articles[index].id;
 
-router.put('/:id', (req, res) => {
-  const filePath = getFilePath(req.params.id);
-  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Cannot edit non-existing article');
+  articles.splice(index, 1);
+  saveArticles(articles);
 
-  const { title, content } = req.body;
-  if (!title?.trim()) return sendError(res, 400, 'Title is required');
-  if (!content?.trim()) return sendError(res, 400, 'Content cannot be empty');
+  notifyArticleDeleted(deletedId);
 
-  try {
-    const oldArticle = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    const updated = { ...oldArticle, title: title.trim(), content };
-    fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
-    res.json(updated);
-
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("articleUpdated", { id: updated.id, title: updated.title });
-    }
-  } catch {
-    sendError(res, 500, 'Failed to update article');
-  }
-});
-
-router.delete('/:id', (req, res) => {
-  const filePath = getFilePath(req.params.id);
-  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Cannot delete non-existing article');
-
-  try {
-    fs.unlinkSync(filePath);
-    res.json({ message: 'Article deleted successfully' });
-  } catch {
-    sendError(res, 500, 'Failed to delete article');
-  }
-});
-
-router.post('/:id/attachments', upload.array('files', 10), (req, res) => {
-  const filePath = getFilePath(req.params.id);
-  if (!fs.existsSync(filePath)) return sendError(res, 404, 'Article not found');
-
-  try {
-    const article = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-
-    const uploaded = req.files.map(file => ({
-      fileName: file.filename,
-      originalName: file.originalname,
-      mime: file.mimetype,
-      url: `/uploads/${file.filename}`
-    }));
-
-    article.attachments.push(...uploaded);
-    fs.writeFileSync(filePath, JSON.stringify(article, null, 2));
-
-    res.json({ message: 'Files uploaded', attachments: article.attachments });
-
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("attachmentAdded", { id: req.params.id, attachments: uploaded });
-    }
-  } catch (err) {
-    sendError(res, 500, 'Failed to upload attachments');
-  }
-  
+  res.json({ id: deletedId });
 });
 
 module.exports = router;

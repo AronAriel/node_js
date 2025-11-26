@@ -17,6 +17,9 @@ export default function ArticleForm({
   const [success, setSuccess] = useState('');
   const [files, setFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [fileError, setFileError] = useState('');
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 
   useEffect(() => {
     if (mode === 'edit' && id) {
@@ -40,10 +43,26 @@ export default function ArticleForm({
     return !errs.title && !errs.content;
   };
 
+  const handleFileSelect = (e) => {
+    setFileError('');
+
+    const selected = Array.from(e.target.files);
+
+    const invalid = selected.find(f => !allowedTypes.includes(f.type));
+
+    if (invalid) {
+      setFileError('Invalid file type. Allowed: JPG, PNG, PDF.');
+      return;
+    }
+
+    setFiles(selected);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError('');
     setSuccess('');
+    setFileError('');
 
     if (!validateForm()) return;
 
@@ -64,17 +83,25 @@ export default function ArticleForm({
       }
 
       if (files.length > 0) {
-        const formData = new FormData();
-        files.forEach(file => formData.append('files', file));
+        try {
+          const formData = new FormData();
+          files.forEach(file => formData.append('files', file));
 
-        const resFiles = await axios.post(
-          `http://localhost:5000/articles/${article.id}/attachments`,
-          formData,
-          { headers: { 'Content-Type': 'multipart/form-data' } }
-        );
+          const resFiles = await axios.post(
+            `http://localhost:5000/articles/${article.id}/attachments`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+          );
 
-        setUploadedFiles(resFiles.data.attachments);
-        setFiles([]);
+          setUploadedFiles(resFiles.data.attachments);
+          setFiles([]);
+          setFileError('');
+
+        } catch (err) {
+          const msg = err.response?.data?.error || 'Failed to upload attachments';
+          setFileError(msg);
+          setFiles([]);
+        }
       }
 
     } catch (err) {
@@ -90,6 +117,7 @@ export default function ArticleForm({
       {success && <p className="success">{success}</p>}
 
       <form onSubmit={handleSubmit} className="create-article-form" noValidate>
+
         <label htmlFor="title">Title</label>
         <input
           id="title"
@@ -111,40 +139,43 @@ export default function ArticleForm({
           />
         </div>
         {fieldErrors.content && <p className="error">{fieldErrors.content}</p>}
+
         <label>Attachments (JPG, PNG, PDF)</label>
         <input
           type="file"
           multiple
-          accept=".jpg,.jpeg,.png,.pdf"
-          onChange={e => setFiles(Array.from(e.target.files))}
+          accept="image/*,application/pdf"
+          onChange={handleFileSelect}
         />
+        {fileError && <p className="error">{fileError}</p>}
 
-       {uploadedFiles.length > 0 && (
-  <div className="attachments">
-    <h3>Attachments</h3>
-    <div className="attachment-list">
-      {uploadedFiles.map(file => (
-        <a
-          key={file.fileName}
-          href={`http://localhost:5000${file.url}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="attachment-card"
-        >
-          <div className="attachment-icon">
-            {file.mime.includes('image') ? '🖼️' : '📄'}
+        {uploadedFiles.length > 0 && (
+          <div className="attachments">
+            <h3>Attachments</h3>
+            <div className="attachment-list">
+              {uploadedFiles.map(file => (
+                <a
+                  key={file.fileName}
+                  href={`http://localhost:5000${file.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="attachment-card"
+                >
+                  <div className="attachment-icon">
+                    {file.mime.includes('image') ? '🖼️' : '📄'}
+                  </div>
+                  <div className="attachment-name">{file.originalName}</div>
+                </a>
+              ))}
+            </div>
           </div>
-          <div className="attachment-name">{file.originalName}</div>
-        </a>
-      ))}
-    </div>
-  </div>
-)}
+        )}
 
         <div className="buttons">
           <button type="submit">{mode === 'create' ? 'Create' : 'Update'}</button>
           <button type="button" className="back-btn" onClick={onBack}>Back</button>
         </div>
+
       </form>
     </div>
   );
