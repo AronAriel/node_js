@@ -1,0 +1,25 @@
+.list-block h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.list-block ul {
+  list-style: none;
+  padding: 0;
+  width: 100%;
+}
+
+.list-block li {
+  margin-bottom: 8px;
+}
+
+.list-block li button {
+  width: 100%;
+  text-align: left;
+  background-color: #28a745;
+  font-size: 14px;
+}
+
+.list-block li button:hover {
+  background-color: #218838;
+}
