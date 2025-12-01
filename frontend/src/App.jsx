@@ -4,6 +4,7 @@ import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
 import axios from 'axios';
+import './App.css';
 
 function App() {
   const [view, setView] = useState('list');
@@ -58,18 +59,6 @@ function App() {
 
       {view === 'list' && (
         <>
-   <div className="workspace-filter">
-  <label>Workspace:</label>
-  <select
-    value={selectedWorkspace || 'all'}
-    onChange={e => setSelectedWorkspace(e.target.value)}
-  >
-    <option value="all">All Workspaces</option>
-    {workspaces.map(ws => (
-      <option key={ws.id} value={ws.id}>{ws.name}</option>
-    ))}
-  </select>
-</div>
 
 
           <div className="block create-block">
@@ -77,13 +66,28 @@ function App() {
             <button onClick={() => setView('create')}>Create</button>
           </div>
 
-          <div className="block list-block">
-            <h2>All Articles</h2>
-            <ArticleList
-              onSelect={handleSelect}
-              workspaceId={selectedWorkspace}
-            />
-          </div>
+        <div className="block list-block">
+        <div className="workspace-filter">
+            <label>Workspace:</label>
+            <select
+                    value={selectedWorkspace || 'all'}
+                    onChange={e => setSelectedWorkspace(e.target.value)}
+              >
+              <option value="all">All Workspaces</option>
+            {workspaces.map(ws => (
+            <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
+        </div>
+
+  <h2>All Articles</h2>
+
+  <ArticleList
+    onSelect={handleSelect}
+    workspaceId={selectedWorkspace}
+  />
+</div>
+
         </>
       )}
 
