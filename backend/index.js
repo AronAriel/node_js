@@ -7,6 +7,8 @@ const http = require('http');
 
 const { initNotifications } = require('./modules/notifications');
 const articlesRouter = require('./routes/articles');
+const commentsRouter = require('./routes/comments'); 
+const workspacesRouter = require('./routes/workspaces');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -26,6 +28,8 @@ const httpServer = http.createServer(app);
 initNotifications(httpServer);
 
 app.use('/articles', articlesRouter);
+app.use('/workspaces', workspacesRouter);
+app.use('/comments', commentsRouter); 
 
 (async () => {
   try {

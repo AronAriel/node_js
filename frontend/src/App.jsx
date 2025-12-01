@@ -3,11 +3,20 @@ import { io } from 'socket.io-client';
 import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
+import axios from 'axios';
 
 function App() {
   const [view, setView] = useState('list');
   const [selectedId, setSelectedId] = useState(null);
   const [notification, setNotification] = useState('');
+  const [workspaces, setWorkspaces] = useState([]);
+  const [selectedWorkspace, setSelectedWorkspace] = useState('');
+
+  useEffect(() => {
+  axios.get('http://localhost:5000/workspaces')
+    .then(res => setWorkspaces(res.data))
+    .catch(() => console.error('Failed to load workspaces'));
+}, []);
 
   useEffect(() => {
     const socket = io('http://localhost:5000');
@@ -49,13 +58,31 @@ function App() {
 
       {view === 'list' && (
         <>
+   <div className="workspace-filter">
+  <label>Workspace:</label>
+  <select
+    value={selectedWorkspace || 'all'}
+    onChange={e => setSelectedWorkspace(e.target.value)}
+  >
+    <option value="all">All Workspaces</option>
+    {workspaces.map(ws => (
+      <option key={ws.id} value={ws.id}>{ws.name}</option>
+    ))}
+  </select>
+</div>
+
+
           <div className="block create-block">
             <h2>Create a new Article</h2>
             <button onClick={() => setView('create')}>Create</button>
           </div>
+
           <div className="block list-block">
             <h2>All Articles</h2>
-            <ArticleList onSelect={handleSelect} />
+            <ArticleList
+              onSelect={handleSelect}
+              workspaceId={selectedWorkspace}
+            />
           </div>
         </>
       )}
@@ -73,11 +100,22 @@ function App() {
       )}
 
       {view === 'create' && (
-        <ArticleForm mode="create" onSuccess={handleCreated} onBack={handleBack} />
+        <ArticleForm
+          mode="create"
+          onSuccess={handleCreated}
+          onBack={handleBack}
+          workspaces={workspaces}
+        />
       )}
 
       {view === 'edit' && (
-        <ArticleForm mode="edit" id={selectedId} onSuccess={handleEdited} onBack={handleBack} />
+        <ArticleForm
+          mode="edit"
+          id={selectedId}
+          onSuccess={handleEdited}
+          onBack={handleBack}
+          workspaces={workspaces}
+        />
       )}
     </div>
   );

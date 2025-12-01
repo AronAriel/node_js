@@ -8,16 +8,21 @@ export default function ArticleForm({
   mode = 'create',  
   id, 
   onSuccess, 
-  onBack 
+  onBack,
+  workspaces,
+  setWorkspaces
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [generalError, setGeneralError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ title: '', content: '' });
+  const [fieldErrors, setFieldErrors] = useState({ title: '', content: '', workspace: '' });
   const [success, setSuccess] = useState('');
   const [files, setFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileError, setFileError] = useState('');
+
+  const [selectedWorkspace, setSelectedWorkspace] = useState('');
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
 
   const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
 
@@ -29,32 +34,32 @@ export default function ArticleForm({
           setTitle(res.data.title);
           setContent(res.data.content);
           setUploadedFiles(res.data.attachments || []);
+          setSelectedWorkspace(res.data.workspaceId || (workspaces[0]?.id || ''));
         })
         .catch(() => setGeneralError('Failed to load article'));
     }
-  }, [mode, id]);
+  }, [mode, id, workspaces]);
 
   const validateForm = () => {
-    const errs = { title: '', content: '' };
+    const errs = { title: '', content: '', workspace: '' };
     if (!title.trim()) errs.title = 'Title is required.';
     const plainText = content.replace(/<[^>]+>/g, '').trim();
     if (!plainText) errs.content = 'Content cannot be empty.';
+    if (!selectedWorkspace || (selectedWorkspace === 'new' && !newWorkspaceName.trim())) {
+      errs.workspace = 'Workspace is required.';
+    }
     setFieldErrors(errs);
-    return !errs.title && !errs.content;
+    return !errs.title && !errs.content && !errs.workspace;
   };
 
   const handleFileSelect = (e) => {
     setFileError('');
-
     const selected = Array.from(e.target.files);
-
     const invalid = selected.find(f => !allowedTypes.includes(f.type));
-
     if (invalid) {
       setFileError('Invalid file type. Allowed: JPG, PNG, PDF.');
       return;
     }
-
     setFiles(selected);
   };
 
@@ -67,16 +72,36 @@ export default function ArticleForm({
     if (!validateForm()) return;
 
     try {
+      let workspaceIdToSend = selectedWorkspace;
+      if (selectedWorkspace === 'new') {
+        const wsRes = await axios.post('http://localhost:5000/workspaces', {
+          name: newWorkspaceName.trim()
+        });
+        workspaceIdToSend = wsRes.data.id;
+        setWorkspaces(prev => [...prev, wsRes.data]); 
+        setNewWorkspaceName('');
+        setSelectedWorkspace(wsRes.data.id);
+      }
+
       let article;
       if (mode === 'create') {
-        const res = await axios.post('http://localhost:5000/articles', { title, content });
+        const res = await axios.post('http://localhost:5000/articles', {
+          title, 
+          content, 
+          workspaceId: workspaceIdToSend
+        });
         article = res.data;
         setSuccess('Article created successfully!');
         setTitle('');
         setContent('');
+        setSelectedWorkspace(workspaces[0]?.id || '');
         onSuccess?.(article.id);
       } else {
-        const res = await axios.put(`http://localhost:5000/articles/${id}`, { title, content });
+        const res = await axios.put(`http://localhost:5000/articles/${id}`, {
+          title, 
+          content, 
+          workspaceId: workspaceIdToSend
+        });
         article = res.data;
         setSuccess('Article updated successfully!');
         onSuccess?.(article.id);
@@ -85,7 +110,7 @@ export default function ArticleForm({
       if (files.length > 0) {
         try {
           const formData = new FormData();
-          files.forEach(file => formData.append('files', file));
+          files.forEach(file => formData.append('attachments', file));
 
           const resFiles = await axios.post(
             `http://localhost:5000/articles/${article.id}/attachments`,
@@ -96,7 +121,6 @@ export default function ArticleForm({
           setUploadedFiles(resFiles.data.attachments);
           setFiles([]);
           setFileError('');
-
         } catch (err) {
           const msg = err.response?.data?.error || 'Failed to upload attachments';
           setFileError(msg);
@@ -140,6 +164,28 @@ export default function ArticleForm({
         </div>
         {fieldErrors.content && <p className="error">{fieldErrors.content}</p>}
 
+        <label>Workspace</label>
+        <select 
+          value={selectedWorkspace || ''} 
+          onChange={e => setSelectedWorkspace(e.target.value)}
+          className={fieldErrors.workspace ? 'input-error' : ''}
+        >
+          <option value="">-- Select workspace --</option>
+          {workspaces.map(ws => (
+            <option key={ws.id} value={ws.id}>{ws.name}</option>
+          ))}
+          <option value="new">+ Create New Workspace</option>
+        </select>
+        {selectedWorkspace === 'new' && (
+          <input 
+            type="text" 
+            placeholder="New workspace name" 
+            value={newWorkspaceName} 
+            onChange={e => setNewWorkspaceName(e.target.value)}
+          />
+        )}
+        {fieldErrors.workspace && <p className="error">{fieldErrors.workspace}</p>}
+
         <label>Attachments (JPG, PNG, PDF)</label>
         <input
           type="file"
@@ -155,16 +201,16 @@ export default function ArticleForm({
             <div className="attachment-list">
               {uploadedFiles.map(file => (
                 <a
-                  key={file.fileName}
-                  href={`http://localhost:5000${file.url}`}
+                  key={file.filename || file.fileName}
+                  href={`http://localhost:5000${file.path || file.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="attachment-card"
                 >
                   <div className="attachment-icon">
-                    {file.mime.includes('image') ? '🖼️' : '📄'}
+                    {/\.(jpg|jpeg|png)$/i.test(file.filename || file.fileName) ? '🖼️' : '📄'}
                   </div>
-                  <div className="attachment-name">{file.originalName}</div>
+                  <div className="attachment-name">{file.filename || file.originalName}</div>
                 </a>
               ))}
             </div>
@@ -175,7 +221,6 @@ export default function ArticleForm({
           <button type="submit">{mode === 'create' ? 'Create' : 'Update'}</button>
           <button type="button" className="back-btn" onClick={onBack}>Back</button>
         </div>
-
       </form>
     </div>
   );

@@ -13,9 +13,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: false
     },
-    attachment: {
-      type: DataTypes.STRING,
-      allowNull: true
+    attachments: {
+      type: DataTypes.JSON,
+      defaultValue: []
+    },
+    workspaceId: {
+      type: DataTypes.INTEGER,
+      allowNull: false
     }
   }, {
     tableName: 'articles',

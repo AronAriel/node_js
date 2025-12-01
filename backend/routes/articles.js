@@ -2,17 +2,21 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs').promises;
-
-const { upload, saveAttachmentPathToArticle, deleteAttachmentIfExists } = require('../modules/attachments');
+const { upload } = require('../modules/attachments');
 const { notifyArticleCreated, notifyArticleUpdated, notifyArticleDeleted } = require('../modules/notifications');
 const db = require('../models');
+
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 router.get('/', async (req, res) => {
+  const { workspaceId } = req.query;
+  const where = workspaceId ? { workspaceId } : {};
+
   try {
     const articles = await db.Article.findAll({
-      attributes: ['id', 'title', 'createdAt'],
-      order: [['createdAt', 'DESC']]
+      where,
+      attributes: ['id', 'title', 'createdAt', 'workspaceId'],
+      order: [['createdAt', 'DESC']],
     });
     res.json(articles);
   } catch (err) {
@@ -23,8 +27,16 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const article = await db.Article.findByPk(req.params.id);
+    const article = await db.Article.findByPk(req.params.id, {
+      include: [
+        { model: db.Comment, attributes: ['id', 'author', 'text', 'createdAt'] },
+        { model: db.Workspace, attributes: ['id', 'name'] }
+      ]
+    });
+
     if (!article) return res.status(404).json({ error: 'Article not found' });
+    if (!article.attachments) article.attachments = [];
+
     res.json(article);
   } catch (err) {
     console.error(err);
@@ -32,18 +44,24 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', upload.single('attachment'), async (req, res) => {
-  const { title, content } = req.body;
+router.post('/', upload.array('attachments'), async (req, res) => {
+  const { title, content, workspaceId } = req.body;
+
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
   if (!content?.trim()) return res.status(400).json({ error: 'Content cannot be empty' });
+  if (!workspaceId) return res.status(400).json({ error: 'WorkspaceId is required' });
 
   try {
-    const attachments = req.file ? [{ filename: req.file.filename, path: `/uploads/${req.file.filename}` }] : [];
+    const attachments = (req.files || []).map(f => ({
+      filename: f.filename,
+      path: `/uploads/${f.filename}`
+    }));
 
     const article = await db.Article.create({
       title: title.trim(),
       content,
-      attachments
+      attachments,
+      workspaceId
     });
 
     notifyArticleCreated(article);
@@ -54,8 +72,9 @@ router.post('/', upload.single('attachment'), async (req, res) => {
   }
 });
 
-router.put('/:id', upload.single('attachment'), async (req, res) => {
+router.put('/:id', upload.array('attachments'), async (req, res) => {
   const { title, content, removedFiles } = req.body;
+
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
   if (!content?.trim()) return res.status(400).json({ error: 'Content cannot be empty' });
 
@@ -68,16 +87,24 @@ router.put('/:id', upload.single('attachment'), async (req, res) => {
 
     if (removedFiles) {
       const filesToRemove = JSON.parse(removedFiles);
+
       for (const filename of filesToRemove) {
         const filePath = path.join(UPLOAD_DIR, filename);
-        try { await fs.unlink(filePath); } catch (e) {}
+        try {
+          await fs.unlink(filePath);
+        } catch (e) {}
       }
+
       article.attachments = article.attachments.filter(f => !filesToRemove.includes(f.filename));
     }
 
-    if (req.file) {
-      const newAttachment = { filename: req.file.filename, path: `/uploads/${req.file.filename}` };
-      article.attachments = [...article.attachments, newAttachment];
+    if (req.files?.length > 0) {
+      const newAttachments = req.files.map(f => ({
+        filename: f.filename,
+        path: `/uploads/${f.filename}`
+      }));
+
+      article.attachments = [...article.attachments, ...newAttachments];
     }
 
     await article.save();
@@ -97,7 +124,9 @@ router.delete('/:id', async (req, res) => {
 
     for (const file of article.attachments || []) {
       const filePath = path.join(UPLOAD_DIR, file.filename);
-      try { await fs.unlink(filePath); } catch (e) {}
+      try {
+        await fs.unlink(filePath);
+      } catch (e) {}
     }
 
     await article.destroy();

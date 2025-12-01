@@ -18,5 +18,13 @@ db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
 db.Article = require('./article')(sequelize, DataTypes);
+db.Comment = require('./comment')(sequelize, DataTypes);
+db.Workspace = require('./workspace')(sequelize, DataTypes);
+
+db.Workspace.hasMany(db.Article, { foreignKey: 'workspaceId' });
+db.Article.belongsTo(db.Workspace, { foreignKey: 'workspaceId' });
+
+db.Article.hasMany(db.Comment, { foreignKey: 'articleId', onDelete: 'CASCADE' });
+db.Comment.belongsTo(db.Article, { foreignKey: 'articleId' });
 
 module.exports = db;

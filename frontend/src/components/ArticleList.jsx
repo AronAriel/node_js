@@ -2,15 +2,20 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import './ArticleList.css';
 
-export default function ArticleList({ onSelect }) {
+export default function ArticleList({ onSelect, workspaceId }) {
   const [articles, setArticles] = useState([]);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    axios.get('http://localhost:5000/articles')
-      .then(res => setArticles(res.data))
-      .catch(() => setError('Failed to fetch articles'));
-  }, []);
+ useEffect(() => {
+  let url = 'http://localhost:5000/articles';
+  if (workspaceId && workspaceId !== 'all') {
+    url += `?workspaceId=${workspaceId}`;
+  }
+
+  axios.get(url)
+    .then(res => setArticles(res.data))
+    .catch(() => setError('Failed to fetch articles'));
+}, [workspaceId]);
 
   if (error) return <p>{error}</p>;
 

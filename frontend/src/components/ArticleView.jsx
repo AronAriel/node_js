@@ -1,18 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import './ArticleView.css';
 
 export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
   const [article, setArticle] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentAuthor, setCommentAuthor] = useState('');
   const [error, setError] = useState('');
+  const [loadingComment, setLoadingComment] = useState(false);
+
+  const [authorError, setAuthorError] = useState('');
+  const [commentError, setCommentError] = useState('');
+
+  const commentsEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (!id) return;
-    axios
-      .get(`http://localhost:5000/articles/${id}`)
-      .then(res => setArticle(res.data))
-      .catch(() => setError('Article not found'));
+
+    const fetchArticle = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/articles/${id}`);
+        setArticle(res.data);
+        setComments(res.data.Comments || []);
+      } catch (err) {
+        setError('Article not found');
+      }
+    };
+
+    fetchArticle();
   }, [id]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [comments]);
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this article?')) return;
@@ -22,6 +47,40 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
       onDeleteSuccess();
     } catch (err) {
       alert('Failed to delete article');
+    }
+  };
+
+  const handleAddComment = async () => {
+    setAuthorError('');
+    setCommentError('');
+
+    let hasError = false;
+
+    if (!commentAuthor.trim()) {
+      setAuthorError('Name is required');
+      hasError = true;
+    }
+
+    if (!commentText.trim()) {
+      setCommentError('Comment text is required');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    setLoadingComment(true);
+    try {
+      const res = await axios.post(`http://localhost:5000/comments/${id}`, {
+        author: commentAuthor.trim(),
+        text: commentText.trim()
+      });
+      setComments(prev => [...prev, res.data]);
+      setCommentText('');
+      setCommentAuthor('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add comment');
+    } finally {
+      setLoadingComment(false);
     }
   };
 
@@ -42,44 +101,77 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
     );
   }
 
- return (
-  <div className="article-view-container">
+  return (
+    <div className="article-view-container">
+      <h2 className="article-title">{article.title}</h2>
 
-    <h2 className="article-title">{article.title}</h2>
+      {article.attachments?.length > 0 && (
+        <div className="attachments attachments-top">
+          <h3>Attachments</h3>
+          <div className="attachment-list">
+            {article.attachments.map(file => (
+              <a
+                key={file.filename}
+                href={`http://localhost:5000${file.path}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="attachment-card"
+              >
+                <div className="attachment-icon">
+                  {file.filename.match(/\.(jpg|jpeg|png)$/i) ? '🖼️' : '📄'}
+                </div>
+                <div className="attachment-name">{file.filename}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
-    {article.attachments && article.attachments.length > 0 && (
-      <div className="attachments attachments-top">
-        <h3>Attachments</h3>
-        <div className="attachment-list">
-          {article.attachments.map(file => (
-            <a
-              key={file.fileName}
-              href={`http://localhost:5000${file.url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="attachment-card"
-            >
-              <div className="attachment-icon">
-                {file.mime.includes('image') ? '🖼️' : '📄'}
-              </div>
-              <div className="attachment-name">{file.originalName}</div>
-            </a>
+      <div
+        className="article-content"
+        dangerouslySetInnerHTML={{ __html: article.content }}
+      />
+
+      <div className="buttons">
+        <button onClick={onBack}>Back</button>
+        <button onClick={() => onEdit(article.id)}>Edit</button>
+        <button className="delete-btn" onClick={handleDelete}>Delete</button>
+      </div>
+
+      <div className="comments-section">
+        <h3>Comments ({comments.length})</h3>
+        {comments.length === 0 && <p>No comments yet.</p>}
+        <ul className="comment-list">
+          {comments.map(c => (
+            <li key={c.id}>
+              <strong>{c.author}:</strong> {c.text}{' '}
+              <em>({new Date(c.createdAt).toLocaleString()})</em>
+            </li>
           ))}
+          <div ref={commentsEndRef} />
+        </ul>
+
+        <div className="comment-form">
+          <input
+            type="text"
+            placeholder="Your name"
+            value={commentAuthor}
+            onChange={e => setCommentAuthor(e.target.value)}
+          />
+          {authorError && <p className="error">{authorError}</p>}
+
+          <textarea
+            value={commentText}
+            onChange={e => setCommentText(e.target.value)}
+            placeholder="Write a comment..."
+          />
+          {commentError && <p className="error">{commentError}</p>}
+
+          <button disabled={loadingComment} onClick={handleAddComment}>
+            {loadingComment ? 'Adding...' : 'Add Comment'}
+          </button>
         </div>
       </div>
-    )}
-    <div
-      className="article-content"
-      dangerouslySetInnerHTML={{ __html: article.content }}
-    />
-
-    <div className="buttons">
-      <button onClick={onBack}>Back</button>
-      <button onClick={() => onEdit(article.id)}>Edit</button>
-      <button className="delete-btn" onClick={handleDelete}>Delete</button>
     </div>
-
-  </div>
-);
-
+  );
 }
