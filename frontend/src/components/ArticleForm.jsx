@@ -63,75 +63,62 @@ export default function ArticleForm({
     setFiles(selected);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setGeneralError('');
-    setSuccess('');
-    setFileError('');
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setGeneralError('');
+  setSuccess('');
+  setFileError('');
 
-    if (!validateForm()) return;
+  if (!validateForm()) return;
 
-    try {
-      let workspaceIdToSend = selectedWorkspace;
-      if (selectedWorkspace === 'new') {
-        const wsRes = await axios.post('http://localhost:5000/workspaces', {
-          name: newWorkspaceName.trim()
-        });
-        workspaceIdToSend = wsRes.data.id;
-        setWorkspaces(prev => [...prev, wsRes.data]); 
-        setNewWorkspaceName('');
-        setSelectedWorkspace(wsRes.data.id);
-      }
+  try {
+    let workspaceIdToSend = selectedWorkspace;
 
-      let article;
-      if (mode === 'create') {
-        const res = await axios.post('http://localhost:5000/articles', {
-          title, 
-          content, 
-          workspaceId: workspaceIdToSend
-        });
-        article = res.data;
-        setSuccess('Article created successfully!');
-        setTitle('');
-        setContent('');
-        setSelectedWorkspace(workspaces[0]?.id || '');
-        onSuccess?.(article.id);
-      } else {
-        const res = await axios.put(`http://localhost:5000/articles/${id}`, {
-          title, 
-          content, 
-          workspaceId: workspaceIdToSend
-        });
-        article = res.data;
-        setSuccess('Article updated successfully!');
-        onSuccess?.(article.id);
-      }
-
-      if (files.length > 0) {
-        try {
-          const formData = new FormData();
-          files.forEach(file => formData.append('attachments', file));
-
-          const resFiles = await axios.post(
-            `http://localhost:5000/articles/${article.id}/attachments`,
-            formData,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
-          );
-
-          setUploadedFiles(resFiles.data.attachments);
-          setFiles([]);
-          setFileError('');
-        } catch (err) {
-          const msg = err.response?.data?.error || 'Failed to upload attachments';
-          setFileError(msg);
-          setFiles([]);
-        }
-      }
-
-    } catch (err) {
-      setGeneralError(err.response?.data?.error || 'Failed to save article');
+    if (selectedWorkspace === 'new') {
+      const wsRes = await axios.post('http://localhost:5000/workspaces', {
+        name: newWorkspaceName.trim()
+      });
+      workspaceIdToSend = wsRes.data.id;
+      setWorkspaces(prev => [...prev, wsRes.data]);
+      setNewWorkspaceName('');
+      setSelectedWorkspace(wsRes.data.id);
     }
-  };
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('content', content);
+    formData.append('workspaceId', workspaceIdToSend);
+
+    files.forEach(f => formData.append('attachments', f));
+
+    let res;
+    if (mode === 'create') {
+      res = await axios.post('http://localhost:5000/articles', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSuccess('Article created successfully!');
+      setTitle('');
+      setContent('');
+      setFiles([]);
+      setSelectedWorkspace(workspaces[0]?.id || '');
+    } else {
+      res = await axios.put(`http://localhost:5000/articles/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSuccess('Article updated successfully!');
+      setFiles([]);
+    }
+
+    const article = res.data;
+
+    setUploadedFiles(article.attachments || []);
+
+    onSuccess?.(article.id);
+
+  } catch (err) {
+    setGeneralError(err.response?.data?.error || 'Failed to save article');
+  }
+};
 
   return (
     <div className="create-article-container">

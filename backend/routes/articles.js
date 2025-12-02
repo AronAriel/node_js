@@ -10,7 +10,9 @@ const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 router.get('/', async (req, res) => {
   const { workspaceId } = req.query;
-  const where = workspaceId ? { workspaceId } : {};
+  const where = workspaceId && workspaceId !== 'all'
+    ? { workspaceId }
+    : {};
 
   try {
     const articles = await db.Article.findAll({
