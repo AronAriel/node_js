@@ -7,8 +7,33 @@ async function addComment(articleId, author, text) {
   const comment = await db.Comment.create({
     articleId: article.id,
     author: author.trim(),
-    text
+    text: text.trim()
   });
+
+  return comment;
+}
+
+async function getCommentsByArticle(articleId) {
+  return db.Comment.findAll({
+    where: { articleId },
+    attributes: ['id', 'author', 'text', 'createdAt'],
+    order: [['createdAt', 'ASC']]
+  });
+}
+
+async function getSingleComment(commentId) {
+  return db.Comment.findByPk(commentId, {
+    attributes: ['id', 'author', 'text', 'createdAt', 'articleId']
+  });
+}
+
+async function updateComment(commentId, author, text) {
+  const comment = await db.Comment.findByPk(commentId);
+  if (!comment) throw new Error('Comment not found');
+
+  comment.author = author.trim();
+  comment.text = text.trim();
+  await comment.save();
 
   return comment;
 }
@@ -21,16 +46,10 @@ async function deleteComment(commentId) {
   return comment;
 }
 
-async function getCommentsByArticle(articleId) {
-  return db.Comment.findAll({
-    where: { articleId },
-    attributes: ['id', 'author', 'text', 'createdAt'],
-    order: [['createdAt', 'ASC']]
-  });
-}
-
 module.exports = {
   addComment,
   deleteComment,
-  getCommentsByArticle
+  getCommentsByArticle,
+  getSingleComment,
+  updateComment
 };

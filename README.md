@@ -9,9 +9,24 @@ A backend server built with Node.js that manages articles by storing and retriev
 ```bash
 cd backend
 npm install
+
+```
+Create `.env` in backend/:
+        DB_HOST=localhost
+        DB_USER=root
+        DB_PASS=your_password
+        DB_NAME=articles_db
+        DB_DIALECT=mysql
+        PORT=5000
+Run migrations:
+```bash
+npm db:create
+npm db:migrate
+```
+Start backend:
+```bash
 npm start
 ```
-
 ### Frontend
 
 ```bash
@@ -24,10 +39,17 @@ npm run dev
 
 ```
 project-root/
-├─ backend/       # Backend code
-├─ data/          # Data
-├─ frontend/      # Frontend code 
-└─ README.md      
+├─ backend/             # Node.js backend
+│  ├─ models/           # Sequelize models
+│  ├─ routes/           # API routes (articles, comments, workspaces)
+│  ├─ modules/          # Business logic: comments, notifications, attachments
+│  ├─ uploads/          # Uploaded files
+│  └─ index.js         # Entry point
+├─ frontend/            # React app
+│  ├─ src/
+│  └─ ...
+├─ data/                # Optional: sample data
+└─ README.md    
 ```
 
 ## Technologies
