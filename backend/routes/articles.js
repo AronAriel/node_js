@@ -46,6 +46,32 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.get('/:id/versions', async (req, res) => {
+  try {
+    const versions = await db.ArticleVersion.findAll({
+      where: { articleId: req.params.id },
+      attributes: ['id', 'versionNumber', 'title', 'createdAt'],
+      order: [['versionNumber', 'DESC']]
+    });
+    res.json(versions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch versions' });
+  }
+});
+
+
+router.get('/:id/versions/:versionId', async (req, res) => {
+  try {
+    const version = await db.ArticleVersion.findByPk(req.params.versionId);
+    if (!version || String(version.articleId) !== String(req.params.id)) return res.status(404).json({ error: 'Version not found' });
+    res.json(version);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch version' });
+  }
+});
+
 router.post('/', upload.array('attachments'), async (req, res) => {
   const { title, content, workspaceId } = req.body;
 
@@ -83,6 +109,21 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
   try {
     const article = await db.Article.findByPk(req.params.id);
     if (!article) return res.status(404).json({ error: 'Article not found' });
+
+
+    try {
+      const maxVersion = await db.ArticleVersion.max('versionNumber', { where: { articleId: article.id } });
+      const nextVersion = (maxVersion || 0) + 1;
+      await db.ArticleVersion.create({
+        articleId: article.id,
+        versionNumber: nextVersion,
+        title: article.title,
+        content: article.content,
+        attachments: article.attachments || []
+      });
+    } catch (verErr) {
+      console.error('Failed to create article version:', verErr);
+    }
 
     article.title = title.trim();
     article.content = content;

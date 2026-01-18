@@ -16,12 +16,12 @@ Create `.env` in backend/:
         DB_USER=root
         DB_PASS=your_password
         DB_NAME=articles_db
-        DB_DIALECT=mysql
+        DB_DIALECT=postgres
         PORT=5000
 Run migrations:
 ```bash
-npm db:create
-npm db:migrate
+npm run db:create
+npm run db:migrate
 ```
 Start backend:
 ```bash

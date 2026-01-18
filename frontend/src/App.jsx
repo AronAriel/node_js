@@ -109,6 +109,7 @@ function App() {
           onSuccess={handleCreated}
           onBack={handleBack}
           workspaces={workspaces}
+          setWorkspaces={setWorkspaces}
         />
       )}
 
@@ -119,6 +120,7 @@ function App() {
           onSuccess={handleEdited}
           onBack={handleBack}
           workspaces={workspaces}
+          setWorkspaces={setWorkspaces}
         />
       )}
     </div>

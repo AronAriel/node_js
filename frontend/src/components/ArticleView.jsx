@@ -4,6 +4,8 @@ import './ArticleView.css';
 
 export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
   const [article, setArticle] = useState(null);
+  const [versions, setVersions] = useState([]);
+  const [viewingVersion, setViewingVersion] = useState(null); 
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [commentAuthor, setCommentAuthor] = useState('');
@@ -33,6 +35,16 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
     };
 
     fetchArticle();
+    const fetchVersions = async () => {
+      try {
+        const vres = await axios.get(`http://localhost:5000/articles/${id}/versions`);
+        setVersions(vres.data || []);
+      } catch (e) {
+
+      }
+    };
+
+    fetchVersions();
   }, [id]);
 
   useEffect(() => {
@@ -48,6 +60,19 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
     } catch (err) {
       alert('Failed to delete article');
     }
+  };
+
+  const openVersion = async (versionId) => {
+    try {
+      const res = await axios.get(`http://localhost:5000/articles/${id}/versions/${versionId}`);
+      setViewingVersion(res.data);
+    } catch (e) {
+      alert('Failed to load version');
+    }
+  };
+
+  const closeVersion = () => {
+    setViewingVersion(null);
   };
 
   const handleAddComment = async () => {
@@ -103,13 +128,19 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
 
   return (
     <div className="article-view-container">
-      <h2 className="article-title">{article.title}</h2>
+      <h2 className="article-title">{viewingVersion ? viewingVersion.title : article.title}</h2>
 
-      {article.attachments?.length > 0 && (
+      {viewingVersion && (
+        <div className="version-indicator">
+          Viewing version {viewingVersion.versionNumber} from {new Date(viewingVersion.createdAt).toLocaleString()} (read-only)
+        </div>
+      )}
+
+      {(viewingVersion ? viewingVersion.attachments : article.attachments)?.length > 0 && (
         <div className="attachments attachments-top">
           <h3>Attachments</h3>
           <div className="attachment-list">
-            {article.attachments.map(file => (
+            {(viewingVersion ? viewingVersion.attachments : article.attachments).map(file => (
               <a
                 key={file.filename}
                 href={`http://localhost:5000${file.path}`}
@@ -129,13 +160,31 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
 
       <div
         className="article-content"
-        dangerouslySetInnerHTML={{ __html: article.content }}
+        dangerouslySetInnerHTML={{ __html: viewingVersion ? viewingVersion.content : article.content }}
       />
 
       <div className="buttons">
         <button onClick={onBack}>Back</button>
-        <button onClick={() => onEdit(article.id)}>Edit</button>
-        <button className="delete-btn" onClick={handleDelete}>Delete</button>
+        {!viewingVersion && <button onClick={() => onEdit(article.id)}>Edit</button>}
+        {!viewingVersion && <button className="delete-btn" onClick={handleDelete}>Delete</button>}
+        <button onClick={() => setVersionsOpen ? null : null} style={{ visibility: 'hidden' }} />
+      </div>
+
+      <div className="versions-section">
+        <h3>Versions</h3>
+        {versions.length === 0 && <p>No previous versions.</p>}
+        {versions.length > 0 && (
+          <ul className="version-list">
+            {versions.map(v => (
+              <li key={v.id}>
+                <button onClick={() => openVersion(v.id)}>
+                  Version {v.versionNumber}: {v.title} — {new Date(v.createdAt).toLocaleString()}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {viewingVersion && <button onClick={closeVersion}>Back to current</button>}
       </div>
 
       <div className="comments-section">
@@ -157,6 +206,7 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
             placeholder="Your name"
             value={commentAuthor}
             onChange={e => setCommentAuthor(e.target.value)}
+            disabled={!!viewingVersion}
           />
           {authorError && <p className="error">{authorError}</p>}
 
@@ -164,10 +214,11 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
             value={commentText}
             onChange={e => setCommentText(e.target.value)}
             placeholder="Write a comment..."
+            disabled={!!viewingVersion}
           />
           {commentError && <p className="error">{commentError}</p>}
 
-          <button disabled={loadingComment} onClick={handleAddComment}>
+          <button disabled={loadingComment || !!viewingVersion} onClick={handleAddComment}>
             {loadingComment ? 'Adding...' : 'Add Comment'}
           </button>
         </div>
