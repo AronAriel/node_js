@@ -1,0 +1,70 @@
+.workspace-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.workspace-filter label {
+  font-weight: 600;
+}
+
+.workspace-filter select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.email-badge {
+  display: inline-block;
+  background-color: #e6f2ff;
+  border-radius: 10%;
+  font-size: 16px;
+  padding: 6px 12px;
+}
+
+.logout-btn {
+  margin-left: auto;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.user-profile-box {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  background: rgba(230,242,255,0.95);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.user-profile-box .profile-label {
+  font-size: 12px;
+  color: #333;
+  opacity: 0.8;
+}
+
+.user-profile-box .email-badge {
+  border-radius: 10%;
+  font-size: 16px;
+  background: transparent;
+  padding: 4px 8px;
+  color: #03396c;
+}
+
+.user-profile-box .logout-btn {
+  align-self: stretch;
+}
