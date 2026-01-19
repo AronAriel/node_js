@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import './ArticleView.css';
 
-export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess }) {
+export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, currentUser }) {
   const [article, setArticle] = useState(null);
   const [versions, setVersions] = useState([]);
   const [viewingVersion, setViewingVersion] = useState(null); 

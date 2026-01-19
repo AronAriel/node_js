@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import './ArticleList.css';
 
-export default function ArticleList({ onSelect, workspaceId }) {
+export default function ArticleList({ onSelect, workspaceId, currentUser }) {
   const [articles, setArticles] = useState([]);
   const [error, setError] = useState('');
 

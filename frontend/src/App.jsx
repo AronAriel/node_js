@@ -3,6 +3,8 @@ import { io } from 'socket.io-client';
 import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
+import Login from './components/Login';
+import Register from './components/Register';
 import axios from 'axios';
 import './App.css';
 
@@ -12,12 +14,50 @@ function App() {
   const [notification, setNotification] = useState('');
   const [workspaces, setWorkspaces] = useState([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authView, setAuthView] = useState('login');
 
   useEffect(() => {
-  axios.get('http://localhost:5000/workspaces')
-    .then(res => setWorkspaces(res.data))
-    .catch(() => console.error('Failed to load workspaces'));
-}, []);
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    axios.get('http://localhost:5000/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => {
+        axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+        setCurrentUser(res.data);
+        setIsAuthenticated(true);
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common.Authorization;
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    axios.get('http://localhost:5000/workspaces')
+      .then(res => setWorkspaces(res.data))
+      .catch(() => console.error('Failed to load workspaces'));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(null, err => {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common.Authorization;
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setView('list');
+      }
+      return Promise.reject(err);
+    });
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
 
   useEffect(() => {
     const socket = io('http://localhost:5000');
@@ -36,6 +76,20 @@ function App() {
     return () => socket.disconnect();
   }, []);
 
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    setView('list');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common.Authorization;
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setView('list');
+  };
+
   const handleSelect = (id) => {
     setSelectedId(id);
     setView('view');
@@ -53,9 +107,26 @@ function App() {
     setView('view');
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="container">
+        {authView === 'login' ? (
+          <Login onLogin={handleLogin} switchToRegister={() => setAuthView('register')} />
+        ) : (
+          <Register switchToLogin={() => setAuthView('login')} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="container">
       {notification && <div className="notification">{notification}</div>}
+      <div className="user-profile-box">
+        <div className="profile-label">User profile</div>
+        {currentUser && <div className="email-badge">{currentUser.email}</div>}
+        <button className="logout-btn" onClick={handleLogout}>Logout</button>
+      </div>
 
       {view === 'list' && (
         <>
@@ -85,6 +156,7 @@ function App() {
   <ArticleList
     onSelect={handleSelect}
     workspaceId={selectedWorkspace}
+    currentUser={currentUser}
   />
 </div>
 
@@ -100,6 +172,7 @@ function App() {
             setView('edit');
           }}
           onDeleteSuccess={handleBack}
+          currentUser={currentUser}
         />
       )}
 
@@ -110,6 +183,7 @@ function App() {
           onBack={handleBack}
           workspaces={workspaces}
           setWorkspaces={setWorkspaces}
+          currentUser={currentUser}
         />
       )}
 
@@ -121,6 +195,7 @@ function App() {
           onBack={handleBack}
           workspaces={workspaces}
           setWorkspaces={setWorkspaces}
+          currentUser={currentUser}
         />
       )}
     </div>

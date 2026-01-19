@@ -9,7 +9,14 @@ const { initNotifications } = require('./modules/notifications');
 const articlesRouter = require('./routes/articles');
 const commentsRouter = require('./routes/comments'); 
 const workspacesRouter = require('./routes/workspaces');
+const authRouter = require('./routes/auth');
 const { sequelize } = require('./models');
+const authMiddleware = require('./middleware/auth');
+
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR: JWT_SECRET is not set. Create a .env file with JWT_SECRET=your_secret');
+  process.exit(1);
+}
 
 const app = express();
 const PORT = 5000;
@@ -26,6 +33,9 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 const httpServer = http.createServer(app);
 
 initNotifications(httpServer);
+
+app.use('/auth', authRouter);
+app.use(authMiddleware);
 
 app.use('/articles', articlesRouter);
 app.use('/workspaces', workspacesRouter);

@@ -10,7 +10,8 @@ export default function ArticleForm({
   onSuccess, 
   onBack,
   workspaces,
-  setWorkspaces
+  setWorkspaces,
+  currentUser
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');

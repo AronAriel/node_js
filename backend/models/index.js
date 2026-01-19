@@ -21,6 +21,7 @@ db.Article = require('./article')(sequelize, DataTypes);
 db.Comment = require('./comment')(sequelize, DataTypes);
 db.Workspace = require('./workspace')(sequelize, DataTypes);
 db.ArticleVersion = require('./articleVersion')(sequelize, DataTypes);
+db.User = require('./user')(sequelize, DataTypes);
 
 db.Workspace.hasMany(db.Article, { foreignKey: 'workspaceId' });
 db.Article.belongsTo(db.Workspace, { foreignKey: 'workspaceId' });
