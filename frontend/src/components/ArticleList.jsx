@@ -27,6 +27,9 @@ export default function ArticleList({ onSelect, workspaceId, currentUser }) {
             <button onClick={() => onSelect(article.id)}>
               {article.title}
             </button>
+            <div style={{ fontSize: 12, color: '#555' }}>
+              Created by: {article.User?.email || 'Unknown'} on {new Date(article.createdAt).toLocaleString()}
+            </div>
           </li>
         ))}
       </ul>

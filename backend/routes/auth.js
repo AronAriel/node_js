@@ -50,8 +50,8 @@ router.post('/login', loginLimiter, async (req, res) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    res.json({ token, user: { id: user.id, email: user.email } });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to authenticate' });
@@ -66,9 +66,9 @@ router.get('/me', async (req, res) => {
   const token = parts[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = await db.User.findByPk(payload.id, { attributes: ['id', 'email'] });
+    const user = await db.User.findByPk(payload.id, { attributes: ['id', 'email', 'role'] });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ id: user.id, email: user.email });
+    res.json({ id: user.id, email: user.email, role: user.role });
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }

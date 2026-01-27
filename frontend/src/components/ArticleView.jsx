@@ -58,8 +58,16 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, curre
       alert('Article deleted successfully!');
       onDeleteSuccess();
     } catch (err) {
-      alert('Failed to delete article');
+      alert(err.response?.data?.error || 'Failed to delete article');
     }
+  };
+
+  const canEdit = () => {
+    if (!currentUser || !article) return false;
+    if (currentUser.role === 'admin') return true;
+    // article may have authorId or included User
+    const authorId = article.authorId || article.User?.id;
+    return String(currentUser.id) === String(authorId);
   };
 
   const openVersion = async (versionId) => {
@@ -129,6 +137,9 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, curre
   return (
     <div className="article-view-container">
       <h2 className="article-title">{viewingVersion ? viewingVersion.title : article.title}</h2>
+      <div style={{ fontSize: 13, color: '#444', marginBottom: 8 }}>
+        Created by: {article.User?.email || 'Unknown'}
+      </div>
 
       {viewingVersion && (
         <div className="version-indicator">
@@ -165,8 +176,8 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, curre
 
       <div className="buttons">
         <button onClick={onBack}>Back</button>
-        {!viewingVersion && <button onClick={() => onEdit(article.id)}>Edit</button>}
-        {!viewingVersion && <button className="delete-btn" onClick={handleDelete}>Delete</button>}
+        {!viewingVersion && canEdit() && <button onClick={() => onEdit(article.id)}>Edit</button>}
+        {!viewingVersion && canEdit() && <button className="delete-btn" onClick={handleDelete}>Delete</button>}
         <button onClick={() => setVersionsOpen ? null : null} style={{ visibility: 'hidden' }} />
       </div>
 

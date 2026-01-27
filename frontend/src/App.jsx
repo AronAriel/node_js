@@ -5,6 +5,7 @@ import ArticleView from './components/ArticleView';
 import ArticleForm from './components/ArticleForm';
 import Login from './components/Login';
 import Register from './components/Register';
+import UserManagement from './components/UserManagement';
 import axios from 'axios';
 import './App.css';
 
@@ -90,6 +91,8 @@ function App() {
     setView('list');
   };
 
+  const goToUsers = () => setView('users');
+
   const handleSelect = (id) => {
     setSelectedId(id);
     setView('view');
@@ -125,6 +128,9 @@ function App() {
       <div className="user-profile-box">
         <div className="profile-label">User profile</div>
         {currentUser && <div className="email-badge">{currentUser.email}</div>}
+        {currentUser?.role === 'admin' && (
+          <button className="logout-btn" onClick={goToUsers}>User Management</button>
+        )}
         <button className="logout-btn" onClick={handleLogout}>Logout</button>
       </div>
 
@@ -197,6 +203,9 @@ function App() {
           setWorkspaces={setWorkspaces}
           currentUser={currentUser}
         />
+      )}
+      {view === 'users' && currentUser?.role === 'admin' && (
+        <UserManagement onBack={() => setView('list')} />
       )}
     </div>
   );

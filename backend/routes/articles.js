@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const { upload } = require('../modules/attachments');
 const { notifyArticleCreated, notifyArticleUpdated, notifyArticleDeleted } = require('../modules/notifications');
 const db = require('../models');
+const { requireOwnerOrAdmin } = require('../middleware/roles');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
@@ -17,7 +18,10 @@ router.get('/', async (req, res) => {
   try {
     const articles = await db.Article.findAll({
       where,
-      attributes: ['id', 'title', 'createdAt', 'workspaceId'],
+      attributes: ['id', 'title', 'createdAt', 'workspaceId', 'authorId'],
+      include: [
+        { model: db.User, attributes: ['id', 'email'] }
+      ],
       order: [['createdAt', 'DESC']],
     });
     res.json(articles);
@@ -32,7 +36,8 @@ router.get('/:id', async (req, res) => {
     const article = await db.Article.findByPk(req.params.id, {
       include: [
         { model: db.Comment, attributes: ['id', 'author', 'text', 'createdAt'] },
-        { model: db.Workspace, attributes: ['id', 'name'] }
+        { model: db.Workspace, attributes: ['id', 'name'] },
+        { model: db.User, attributes: ['id', 'email', 'role'] }
       ]
     });
 
@@ -89,7 +94,8 @@ router.post('/', upload.array('attachments'), async (req, res) => {
       title: title.trim(),
       content,
       attachments,
-      workspaceId
+      workspaceId,
+      authorId: req.user?.id || null
     });
 
     notifyArticleCreated(article);
@@ -100,16 +106,15 @@ router.post('/', upload.array('attachments'), async (req, res) => {
   }
 });
 
-router.put('/:id', upload.array('attachments'), async (req, res) => {
+router.put('/:id', upload.array('attachments'), requireOwnerOrAdmin('Article'), async (req, res) => {
   const { title, content, removedFiles } = req.body;
 
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
   if (!content?.trim()) return res.status(400).json({ error: 'Content cannot be empty' });
 
   try {
-    const article = await db.Article.findByPk(req.params.id);
-    if (!article) return res.status(404).json({ error: 'Article not found' });
-
+    // `requireOwnerOrAdmin` attaches the resource as `req.resource`
+    const article = req.resource;
 
     try {
       const maxVersion = await db.ArticleVersion.max('versionNumber', { where: { articleId: article.id } });
@@ -160,10 +165,9 @@ router.put('/:id', upload.array('attachments'), async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireOwnerOrAdmin('Article'), async (req, res) => {
   try {
-    const article = await db.Article.findByPk(req.params.id);
-    if (!article) return res.status(404).json({ error: 'Article not found' });
+    const article = req.resource;
 
     for (const file of article.attachments || []) {
       const filePath = path.join(UPLOAD_DIR, file.filename);

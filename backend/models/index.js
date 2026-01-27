@@ -32,4 +32,8 @@ db.Comment.belongsTo(db.Article, { foreignKey: 'articleId' });
 db.Article.hasMany(db.ArticleVersion, { foreignKey: 'articleId', onDelete: 'CASCADE' });
 db.ArticleVersion.belongsTo(db.Article, { foreignKey: 'articleId' });
 
+// User - Article relationship
+db.User.hasMany(db.Article, { foreignKey: 'authorId' });
+db.Article.belongsTo(db.User, { foreignKey: 'authorId' });
+
 module.exports = db;

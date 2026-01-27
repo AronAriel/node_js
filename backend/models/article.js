@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
     workspaceId: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    authorId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
     }
   }, {
     tableName: 'articles',

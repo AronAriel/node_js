@@ -10,6 +10,7 @@ const articlesRouter = require('./routes/articles');
 const commentsRouter = require('./routes/comments'); 
 const workspacesRouter = require('./routes/workspaces');
 const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
 const { sequelize } = require('./models');
 const authMiddleware = require('./middleware/auth');
 
@@ -40,6 +41,7 @@ app.use(authMiddleware);
 app.use('/articles', articlesRouter);
 app.use('/workspaces', workspacesRouter);
 app.use('/comments', commentsRouter); 
+app.use('/users', usersRouter);
 
 (async () => {
   try {
