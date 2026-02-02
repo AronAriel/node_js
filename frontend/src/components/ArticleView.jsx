@@ -62,6 +62,23 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, curre
     }
   };
 
+  const handleExportPDF = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/articles/${id}/export`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `article_${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to export PDF');
+    }
+  };
+
   const canEdit = () => {
     if (!currentUser || !article) return false;
     if (currentUser.role === 'admin') return true;
@@ -176,6 +193,7 @@ export default function ArticleView({ id, onBack, onEdit, onDeleteSuccess, curre
 
       <div className="buttons">
         <button onClick={onBack}>Back</button>
+        {!viewingVersion && <button onClick={handleExportPDF}>Export as PDF</button>}
         {!viewingVersion && canEdit() && <button onClick={() => onEdit(article.id)}>Edit</button>}
         {!viewingVersion && canEdit() && <button className="delete-btn" onClick={handleDelete}>Delete</button>}
         <button onClick={() => setVersionsOpen ? null : null} style={{ visibility: 'hidden' }} />

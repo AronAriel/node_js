@@ -7,6 +7,8 @@ const { notifyArticleCreated, notifyArticleUpdated, notifyArticleDeleted } = req
 const db = require('../models');
 const { Op } = require('sequelize');
 const { requireOwnerOrAdmin } = require('../middleware/roles');
+const PDFDocument = require('pdfkit');
+const { htmlToText } = require('html-to-text');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
@@ -59,6 +61,55 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch article' });
+  }
+});
+
+router.get('/:id/export', async (req, res) => {
+  try {
+    const article = await db.Article.findByPk(req.params.id, {
+      include: [
+        { model: db.User, attributes: ['id', 'email'] },
+        { model: db.Workspace, attributes: ['id', 'name'] }
+      ]
+    });
+
+    if (!article) return res.status(404).json({ error: 'Article not found' });
+
+    const doc = new PDFDocument({ autoFirstPage: false });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="article_${article.id}.pdf"`);
+
+    doc.pipe(res);
+
+    doc.addPage({ margin: 50 });
+    doc.fontSize(20).text(article.title || 'Untitled', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fontSize(10).fillColor('grey').text(`Created: ${article.createdAt ? new Date(article.createdAt).toLocaleString() : 'Unknown'}`);
+    if (article.User?.email) doc.text(`Author: ${article.User.email}`);
+    if (article.Workspace?.name) doc.text(`Workspace: ${article.Workspace.name}`);
+    doc.moveDown(1);
+
+    const contentText = article.content ? htmlToText(article.content, { wordwrap: 130 }) : '';
+
+    doc.fillColor('black').fontSize(12).text(contentText, {
+      align: 'left'
+    });
+
+    if (article.attachments?.length) {
+      doc.addPage({ margin: 50 });
+      doc.fontSize(16).text('Attachments', { underline: true });
+      doc.moveDown(0.5);
+      article.attachments.forEach(att => {
+        doc.fontSize(12).text(att.filename || att.path);
+      });
+    }
+
+    doc.end();
+
+  } catch (err) {
+    console.error('Failed to generate PDF:', err);
+    res.status(500).json({ error: 'Failed to generate PDF' });
   }
 });
 

@@ -27,6 +27,8 @@
     "bcrypt": "^5.1.0",
     "jsonwebtoken": "^9.0.0",
     "express-rate-limit": "^6.7.0"
+  ,"pdfkit": "^0.13.0",
+  "html-to-text": "^9.0.0"
   },
   "devDependencies": {
     "sequelize-cli": "^6.6.3"
