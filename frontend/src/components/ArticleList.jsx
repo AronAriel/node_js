@@ -1,27 +1,62 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import './ArticleList.css';
 
 export default function ArticleList({ onSelect, workspaceId, currentUser }) {
   const [articles, setArticles] = useState([]);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const debounceRef = useRef();
 
  useEffect(() => {
-  let url = 'http://localhost:5000/articles';
-  if (workspaceId && workspaceId !== 'all') {
-    url += `?workspaceId=${workspaceId}`;
-  }
+  if (debounceRef.current) clearTimeout(debounceRef.current);
+  debounceRef.current = setTimeout(() => {
+    const fetchArticles = async () => {
+      setLoading(true);
+      try {
+        let url = 'http://localhost:5000/articles';
+        const params = new URLSearchParams();
+        if (workspaceId && workspaceId !== 'all') params.append('workspaceId', workspaceId);
+        if (query?.trim()) params.append('q', query.trim());
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
 
-  axios.get(url)
-    .then(res => setArticles(res.data))
-    .catch(() => setError('Failed to fetch articles'));
-}, [workspaceId]);
+        const res = await axios.get(url);
+        setArticles(res.data);
+        setError('');
+      } catch (e) {
+        console.error(e);
+        setError('Failed to fetch articles');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (error) return <p>{error}</p>;
+    fetchArticles();
+  }, 300);
+
+  return () => clearTimeout(debounceRef.current);
+}, [workspaceId, query]);
+
 
   return (
     <div>
+      <div style={{ marginBottom: 12 }}>
+        <input
+          aria-label="Search articles"
+          placeholder="Search title or content..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          style={{ padding: '6px 8px', width: '100%', boxSizing: 'border-box' }}
+        />
+      </div>
+
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {loading && <p>Searching...</p>}
+
       <ul>
+        {articles.length === 0 && !loading && <li>No articles found.</li>}
         {articles.map(article => (
           <li key={article.id}>
             <button onClick={() => onSelect(article.id)}>

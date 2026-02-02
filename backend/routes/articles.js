@@ -5,15 +5,26 @@ const fs = require('fs').promises;
 const { upload } = require('../modules/attachments');
 const { notifyArticleCreated, notifyArticleUpdated, notifyArticleDeleted } = require('../modules/notifications');
 const db = require('../models');
+const { Op } = require('sequelize');
 const { requireOwnerOrAdmin } = require('../middleware/roles');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 router.get('/', async (req, res) => {
-  const { workspaceId } = req.query;
-  const where = workspaceId && workspaceId !== 'all'
-    ? { workspaceId }
-    : {};
+  const { workspaceId, q } = req.query;
+  const where = {};
+
+  if (workspaceId && workspaceId !== 'all') {
+    where.workspaceId = workspaceId;
+  }
+
+  if (q && q.trim()) {
+    const like = `%${q.trim()}%`;
+    where[Op.or] = [
+      { title: { [Op.iLike]: like } },
+      { content: { [Op.iLike]: like } }
+    ];
+  }
 
   try {
     const articles = await db.Article.findAll({
@@ -113,7 +124,6 @@ router.put('/:id', upload.array('attachments'), requireOwnerOrAdmin('Article'), 
   if (!content?.trim()) return res.status(400).json({ error: 'Content cannot be empty' });
 
   try {
-    // `requireOwnerOrAdmin` attaches the resource as `req.resource`
     const article = req.resource;
 
     try {
