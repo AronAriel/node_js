@@ -1,0 +1,16 @@
+.workspace-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.workspace-filter label {
+  font-weight: 600;
+}
+
+.workspace-filter select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
